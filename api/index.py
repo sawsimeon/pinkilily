@@ -13,19 +13,32 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'your-flask-secret-key')  # Set in Vercel env vars
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Database: Use PostgreSQL from Vercel Postgres
+# Database configuration
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # Parse DATABASE_URL for PostgreSQL
+    # Use PostgreSQL in Vercel (production)
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
-    # Fallback for local SQLite (for development)
-    instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../instance')
-    os.makedirs(instance_path, exist_ok=True)
+    # Fallback for local development or Vercel with SQLite
+    if os.environ.get('VERCEL'):
+        # Use /tmp for writable storage in Vercel
+        instance_path = "/tmp/instance"
+    else:
+        # Local development: use instance folder in project directory
+        instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+    
+    try:
+        os.makedirs(instance_path, exist_ok=True)
+        print(f"Created directory: {instance_path}")
+    except OSError as e:
+        print(f"Error creating directory {instance_path}: {e}")
+        if e.errno != 30 and e.errno != 13:  # errno 30: read-only, errno 13: permission denied
+            raise  # Re-raise unexpected errors
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "blog.db")}'
 
+# Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
 # Vercel Blob for uploads
