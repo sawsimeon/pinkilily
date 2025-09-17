@@ -5,9 +5,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FileField
 from wtforms.validators import DataRequired
 from werkzeug.utils import secure_filename
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-import vercel  # For Vercel runtime utilities (kept for compatibility)
+import vercel
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'your-flask-secret-key')
@@ -24,7 +22,6 @@ else:
         instance_path = "/tmp/instance"
     else:
         instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
-    
     try:
         os.makedirs(instance_path, exist_ok=True)
         print(f"Created directory: {instance_path}")
@@ -34,38 +31,32 @@ else:
             raise
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "blog.db")}'
 
-# Initialize SQLAlchemy
+print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 db = SQLAlchemy(app)
-
-# Secret key
 SECRET_KEY = 'moo'
 
-# Blog post model
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    image_url = db.Column(db.String(200), nullable=True)
+    media_url = db.Column(db.String(200), nullable=True)  # Renamed from image_url
 
-# Form
 class PostForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[DataRequired()])
-    image = FileField('Image')
+    media = FileField('Media (Image or Video)')  # Renamed from image
 
-# Create database tables
 with app.app_context():
     db.create_all()
 
-# Allowed file check
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm'}
 
-# Secret key check
 def check_secret_key():
     secret = request.form.get('secret_key')
     if secret != SECRET_KEY:
         flash('Invalid secret key!', 'error')
+        print("Secret key check failed")
         return False
     return True
 
@@ -76,6 +67,7 @@ def index():
         return render_template('index.html', posts=posts)
     except Exception as e:
         flash(f'Error loading posts: {str(e)}', 'error')
+        print(f"Error loading posts: {str(e)}")
         return render_template('index.html', posts=[])
 
 @app.route('/add', methods=['GET', 'POST'])
@@ -88,30 +80,29 @@ def add_post():
             try:
                 title = form.title.data
                 content = form.content.data
-                image_url = None
-                if form.image.data and allowed_file(form.image.data.filename):
+                media_url = None
+                if form.media.data and allowed_file(form.media.data.filename):
                     try:
-                        filename = secure_filename(form.image.data.filename)
-                        # Use /tmp/uploads for Vercel, static/uploads for local
+                        filename = secure_filename(form.media.data.filename)
                         upload_dir = '/tmp/uploads' if os.environ.get('VERCEL') else os.path.join(app.static_folder, 'uploads')
                         os.makedirs(upload_dir, exist_ok=True)
                         upload_path = os.path.join(upload_dir, filename)
-                        print(f"Saving image to: {upload_path}")
-                        form.image.data.save(upload_path)
-                        # Generate absolute URL for the image
-                        image_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
-                        print(f"Generated image URL: {image_url}")
+                        print(f"Saving media to: {upload_path}")
+                        form.media.data.save(upload_path)
+                        media_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
+                        print(f"Generated media URL: {media_url}")
                     except Exception as e:
-                        flash(f'Image upload failed: {str(e)}', 'error')
-                        print(f"Image save error: {str(e)}")
-                        image_url = None
-                elif form.image.data:
-                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF allowed', 'error')
-                    print(f"Invalid file type: {form.image.data.filename}")
-                new_post = Post(title=title, content=content, image_url=image_url)
+                        flash(f'Media upload failed: {str(e)}', 'error')
+                        print(f"Media save error: {str(e)}")
+                        media_url = None
+                elif form.media.data:
+                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
+                    print(f"Invalid file type: {form.media.data.filename}")
+                new_post = Post(title=title, content=content, media_url=media_url)
                 db.session.add(new_post)
                 db.session.commit()
                 flash('Post added successfully!', 'success')
+                print(f"Post added: {title}")
                 return redirect(url_for('index'))
             except Exception as e:
                 flash(f'Error adding post: {str(e)}', 'error')
@@ -127,6 +118,7 @@ def edit_post(post_id):
         post = Post.query.get_or_404(post_id)
     except Exception as e:
         flash(f'Error loading post: {str(e)}', 'error')
+        print(f"Error loading post {post_id}: {str(e)}")
         return redirect(url_for('index'))
     form = PostForm(obj=post)
     if request.method == 'POST':
@@ -136,24 +128,25 @@ def edit_post(post_id):
             try:
                 post.title = form.title.data
                 post.content = form.content.data
-                if form.image.data and allowed_file(form.image.data.filename):
+                if form.media.data and allowed_file(form.media.data.filename):
                     try:
-                        filename = secure_filename(form.image.data.filename)
-                        upload_dir = '/tmp/uploads' if os.environ.get('VERCEL') else os.path.join(app.static_folder, 'uploads')
+                        filename = secure_filename(form.media.data.filename)
+                        upload_dir = '/tmp/uploads' if os.environ.get('VERCEL') else os.path.join(app.static_folder, 'Uploads')
                         os.makedirs(upload_dir, exist_ok=True)
                         upload_path = os.path.join(upload_dir, filename)
-                        print(f"Saving image to: {upload_path}")
-                        form.image.data.save(upload_path)
-                        post.image_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
-                        print(f"Updated image URL: {post.image_url}")
+                        print(f"Saving media to: {upload_path}")
+                        form.media.data.save(upload_path)
+                        post.media_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
+                        print(f"Updated media URL: {post.media_url}")
                     except Exception as e:
-                        flash(f'Image upload failed: {str(e)}', 'error')
-                        print(f"Image save error: {str(e)}")
-                elif form.image.data:
-                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF allowed', 'error')
-                    print(f"Invalid file type: {form.image.data.filename}")
+                        flash(f'Media upload failed: {str(e)}', 'error')
+                        print(f"Media save error: {str(e)}")
+                elif form.media.data:
+                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
+                    print(f"Invalid file type: {form.media.data.filename}")
                 db.session.commit()
                 flash('Post updated successfully!', 'success')
+                print(f"Post {post_id} updated")
                 return redirect(url_for('index'))
             except Exception as e:
                 flash(f'Error updating post: {str(e)}', 'error')
@@ -163,18 +156,33 @@ def edit_post(post_id):
             print(f"Form validation errors: {form.errors}")
     return render_template('edit_post.html', post=post, form=form)
 
-@app.route('/delete/<int:post_id>', methods=['POST'])
+@app.route('/delete/<int:post_id>', methods=['GET', 'POST'])
 def delete_post(post_id):
-    if not check_secret_key():
-        return render_template('secret_key.html', action='delete', post_id=post_id)
     try:
+        print(f"Attempting to access delete_post with post_id: {post_id}")
         post = Post.query.get_or_404(post_id)
-        db.session.delete(post)
-        db.session.commit()
-        flash('Post deleted successfully!', 'success')
+        print(f"Found post: {post.title} (ID: {post_id})")
+        if request.method == 'POST':
+            print("Processing POST request for deletion")
+            if not check_secret_key():
+                print("Secret key check failed")
+                return render_template('secret_key.html', action='delete', post_id=post_id)
+            try:
+                db.session.delete(post)
+                db.session.commit()
+                flash('Post deleted successfully!', 'success')
+                print(f"Post {post_id} deleted successfully")
+                return redirect(url_for('index'))
+            except Exception as e:
+                flash(f'Error deleting post: {str(e)}', 'error')
+                print(f"Error deleting post: {str(e)}")
+                return redirect(url_for('index'))
+        print("Rendering secret_key.html for GET request")
+        return render_template('secret_key.html', action='delete', post_id=post_id)
     except Exception as e:
-        flash(f'Error deleting post: {str(e)}', 'error')
-    return redirect(url_for('index'))
+        print(f"Internal Server Error in delete_post: {str(e)}")
+        flash(f'Internal Server Error: {str(e)}', 'error')
+        return redirect(url_for('index'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

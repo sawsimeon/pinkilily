@@ -1,14 +1,36 @@
 {% extends 'base.html' %}
-{% block title %}Add Post{% endblock %}
+{% block title %}Add New Post{% endblock %}
 {% block content %}
     <h1>Add New Post</h1>
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" action="{{ url_for('add_post') }}" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
-        <label>Title: {{ form.title }}</label><br><br>
-        <label>Content: {{ form.content }}</label><br><br>
-        <label>Image: {{ form.image }} (PNG, JPG, JPEG, GIF)</label><br><br>
-        <label>Secret Key: <input type="text" name="secret_key" required></label><br><br>
-        <input type="submit" value="Add Post">
+        <div>
+            {{ form.title.label }} {{ form.title() }}
+            {% if form.title.errors %}
+                {% for error in form.title.errors %}
+                    <span class="error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div>
+            {{ form.content.label }} {{ form.content() }}
+            {% if form.content.errors %}
+                {% for error in form.content.errors %}
+                    <span class="error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div>
+            {{ form.media.label }} {{ form.media() }}
+            {% if form.media.errors %}
+                {% for error in form.media.errors %}
+                    <span class="error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <label for="secret_key">Secret Key:</label>
+        <input type="text" id="secret_key" name="secret_key" placeholder="Enter secret key" required>
+        <button type="submit">Submit</button>
     </form>
     <a href="{{ url_for('index') }}">Back to Home</a>
 {% endblock %}
