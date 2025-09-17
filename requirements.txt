@@ -5,3 +5,4 @@ Werkzeug
 SQLAlchemy
 psycopg2-binary
 vercel
+gunicorn
