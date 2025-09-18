@@ -1,4 +1,9 @@
 import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file for local development
+except ImportError:
+    print("python-dotenv not installed; relying on environment variables")
 import cloudinary
 import cloudinary.uploader
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -9,7 +14,6 @@ from wtforms.validators import DataRequired
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 load_dotenv()
-
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'your-flask-secret-key')
@@ -51,12 +55,17 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    media_url = db.Column(db.String(200), nullable=True)  # Stores Cloudinary URL
+    media = db.relationship('PostMedia', backref='post', lazy=True, cascade='all, delete-orphan')  # One-to-many relationship
+
+class PostMedia(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    media_url = db.Column(db.String(200), nullable=False)  # Stores Cloudinary URL
 
 class PostForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[DataRequired()])
-    media = FileField('Media (Image or Video)')
+    media = FileField('Media (Images or Videos)', render_kw={'multiple': True})  # Allow multiple files
 
 with app.app_context():
     db.create_all()
@@ -92,40 +101,47 @@ def add_post():
             try:
                 title = form.title.data
                 content = form.content.data
-                media_url = None
-                if form.media.data and allowed_file(form.media.data.filename):
-                    try:
-                        filename = secure_filename(form.media.data.filename)
-                        if os.environ.get('CLOUDINARY_CLOUD_NAME'):
-                            # Upload to Cloudinary
-                            upload_result = cloudinary.uploader.upload(
-                                form.media.data,
-                                public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
-                                resource_type='auto'  # Detects image or video
-                            )
-                            media_url = upload_result['secure_url']  # Persistent Cloudinary URL
-                            print(f"Uploaded media to Cloudinary: {media_url}")
-                        else:
-                            # Fallback for local testing without Cloudinary
-                            upload_dir = os.path.join(app.static_folder, 'Uploads')
-                            os.makedirs(upload_dir, exist_ok=True)
-                            upload_path = os.path.join(upload_dir, filename)
-                            print(f"Saving media to: {upload_path}")
-                            form.media.data.save(upload_path)
-                            media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
-                            print(f"Generated media URL: {media_url}")
-                    except Exception as e:
-                        flash(f'Media upload failed: {str(e)}', 'error')
-                        print(f"Media upload error: {str(e)}")
-                        media_url = None
-                elif form.media.data:
-                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
-                    print(f"Invalid file type: {form.media.data.filename}")
-                new_post = Post(title=title, content=content, media_url=media_url)
+                new_post = Post(title=title, content=content)
                 db.session.add(new_post)
+                
+                # Handle multiple file uploads
+                media_files = request.files.getlist('media')  # Get list of uploaded files
+                for media_file in media_files:
+                    if media_file and allowed_file(media_file.filename):
+                        try:
+                            filename = secure_filename(media_file.filename)
+                            if os.environ.get('CLOUDINARY_CLOUD_NAME'):
+                                # Upload to Cloudinary
+                                upload_result = cloudinary.uploader.upload(
+                                    media_file,
+                                    public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
+                                    resource_type='auto'  # Detects image or video
+                                )
+                                media_url = upload_result['secure_url']  # Persistent Cloudinary URL
+                                print(f"Uploaded media to Cloudinary: {media_url}")
+                            else:
+                                # Fallback for local testing without Cloudinary
+                                upload_dir = os.path.join(app.static_folder, 'uploads')
+                                os.makedirs(upload_dir, exist_ok=True)
+                                upload_path = os.path.join(upload_dir, filename)
+                                print(f"Saving media to: {upload_path}")
+                                media_file.save(upload_path)
+                                media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
+                                print(f"Generated media URL: {media_url}")
+                            
+                            # Add media URL to PostMedia
+                            post_media = PostMedia(media_url=media_url, post=new_post)
+                            db.session.add(post_media)
+                        except Exception as e:
+                            flash(f'Media upload failed for {filename}: {str(e)}', 'error')
+                            print(f"Media upload error for {filename}: {str(e)}")
+                    elif media_file.filename:
+                        flash(f'Invalid file type for {media_file.filename}! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
+                        print(f"Invalid file type: {media_file.filename}")
+                
                 db.session.commit()
                 flash('Post added successfully!', 'success')
-                print(f"Post added: {title}, Media URL: {media_url}")
+                print(f"Post added: {title}")
                 return redirect(url_for('index'))
             except Exception as e:
                 db.session.rollback()  # Rollback on DB error
@@ -152,33 +168,44 @@ def edit_post(post_id):
             try:
                 post.title = form.title.data
                 post.content = form.content.data
-                if form.media.data and allowed_file(form.media.data.filename):
-                    try:
-                        filename = secure_filename(form.media.data.filename)
-                        if os.environ.get('CLOUDINARY_CLOUD_NAME'):
-                            # Upload to Cloudinary
-                            upload_result = cloudinary.uploader.upload(
-                                form.media.data,
-                                public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
-                                resource_type='auto'  # Detects image or video
-                            )
-                            post.media_url = upload_result['secure_url']  # Persistent Cloudinary URL
-                            print(f"Updated media to Cloudinary: {post.media_url}")
-                        else:
-                            # Fallback for local testing without Cloudinary
-                            upload_dir = os.path.join(app.static_folder, 'Uploads')
-                            os.makedirs(upload_dir, exist_ok=True)
-                            upload_path = os.path.join(upload_dir, filename)
-                            print(f"Saving media to: {upload_path}")
-                            form.media.data.save(upload_path)
-                            post.media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
-                            print(f"Updated media URL: {post.media_url}")
-                    except Exception as e:
-                        flash(f'Media upload failed: {str(e)}', 'error')
-                        print(f"Media upload error: {str(e)}")
-                elif form.media.data:
-                    flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
-                    print(f"Invalid file type: {form.media.data.filename}")
+                # Handle multiple file uploads
+                media_files = request.files.getlist('media')  # Get list of uploaded files
+                if media_files and any(media_file.filename for media_file in media_files):
+                    # Optionally clear existing media (or keep them if no new files are uploaded)
+                    PostMedia.query.filter_by(post_id=post.id).delete()
+                    for media_file in media_files:
+                        if media_file and allowed_file(media_file.filename):
+                            try:
+                                filename = secure_filename(media_file.filename)
+                                if os.environ.get('CLOUDINARY_CLOUD_NAME'):
+                                    # Upload to Cloudinary
+                                    upload_result = cloudinary.uploader.upload(
+                                        media_file,
+                                        public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
+                                        resource_type='auto'  # Detects image or video
+                                    )
+                                    media_url = upload_result['secure_url']  # Persistent Cloudinary URL
+                                    print(f"Updated media to Cloudinary: {media_url}")
+                                else:
+                                    # Fallback for local testing without Cloudinary
+                                    upload_dir = os.path.join(app.static_folder, 'Uploads')
+                                    os.makedirs(upload_dir, exist_ok=True)
+                                    upload_path = os.path.join(upload_dir, filename)
+                                    print(f"Saving media to: {upload_path}")
+                                    media_file.save(upload_path)
+                                    media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
+                                    print(f"Updated media URL: {media_url}")
+                                
+                                # Add media URL to PostMedia
+                                post_media = PostMedia(media_url=media_url, post=post)
+                                db.session.add(post_media)
+                            except Exception as e:
+                                flash(f'Media upload failed for {filename}: {str(e)}', 'error')
+                                print(f"Media upload error for {filename}: {str(e)}")
+                        elif media_file.filename:
+                            flash(f'Invalid file type for {media_file.filename}! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
+                            print(f"Invalid file type: {media_file.filename}")
+                
                 db.session.commit()
                 flash('Post updated successfully!', 'success')
                 print(f"Post {post_id} updated")
@@ -204,7 +231,7 @@ def delete_post(post_id):
                 print("Secret key check failed")
                 return render_template('secret_key.html', action='delete', post_id=post_id)
             try:
-                db.session.delete(post)
+                db.session.delete(post)  # Cascade deletes PostMedia entries
                 db.session.commit()
                 flash('Post deleted successfully!', 'success')
                 print(f"Post {post_id} deleted successfully")

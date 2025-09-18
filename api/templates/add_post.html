@@ -21,7 +21,7 @@
             {% endif %}
         </div>
         <div>
-            {{ form.media.label }} {{ form.media() }}
+            {{ form.media.label }} {{ form.media(multiple=True) }}
             {% if form.media.errors %}
                 {% for error in form.media.errors %}
                     <span class="error">{{ error }}</span>

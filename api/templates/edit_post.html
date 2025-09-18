@@ -21,13 +21,31 @@
             {% endif %}
         </div>
         <div>
-            {{ form.media.label }} {{ form.media() }}
+            {{ form.media.label }} {{ form.media(multiple=True) }}
             {% if form.media.errors %}
                 {% for error in form.media.errors %}
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             {% endif %}
         </div>
+        {% if post.media %}
+            <div>
+                <h3>Current Media</h3>
+                <div class="media-gallery">
+                    {% for media in post.media %}
+                        {% if media.media_url.endswith(('.mp4', '.webm')) %}
+                            <video class="post-media" controls>
+                                <source src="{{ media.media_url }}?v={{ post.id }}" type="{{ 'video/mp4' if media.media_url.endswith('.mp4') else 'video/webm' }}">
+                                Your browser does not support the video tag.
+                            </video>
+                        {% else %}
+                            <img src="{{ media.media_url }}?v={{ post.id }}" alt="{{ post.title }}" class="post-image">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <p><em>Uploading new media will replace existing media.</em></p>
+            </div>
+        {% endif %}
         <label for="secret_key">Secret Key:</label>
         <input type="text" id="secret_key" name="secret_key" placeholder="Enter secret key" required>
         <button type="submit">Submit</button>
