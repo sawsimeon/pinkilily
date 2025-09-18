@@ -41,7 +41,7 @@ SECRET_KEY = 'moo'
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(300), nullable=False)
     content = db.Column(db.Text, nullable=False)
     media = db.relationship('PostMedia', backref='post', lazy=True, cascade='all, delete-orphan')  # One-to-many relationship
 
