@@ -27,27 +27,15 @@ cloudinary.config(
     secure=True
 )
 
-# Database configuration
 database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-else:
-    if os.environ.get('VERCEL'):
-        instance_path = "/tmp/instance"
-    else:
-        instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
-    try:
-        os.makedirs(instance_path, exist_ok=True)
-        print(f"Created directory: {instance_path}")
-    except OSError as e:
-        print(f"Error creating directory {instance_path}: {e}")
-        if e.errno != 30 and e.errno != 13:
-            raise
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "blog.db")}'
-
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is required")
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Already in your code, included for completeness
 print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+
 db = SQLAlchemy(app)
 SECRET_KEY = 'moo'
 
