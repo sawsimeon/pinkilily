@@ -20,6 +20,14 @@
         ul { list-style: none; padding: 0; }
         li { background: rgba(0, 0, 0, 0.5); padding: 10px; margin-bottom: 10px; border-radius: 5px; }
         .post-image, .post-media { max-width: 200px; height: auto; border-radius: 5px; margin-bottom: 10px; }
+        .site-image {
+            max-width: 150px; /* Small size */
+            height: auto;
+            display: block;
+            margin-left: 10px; /* Align to left */
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -30,6 +38,14 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+    <!-- Site-wide image -->
+    <img src="https://res.cloudinary.com/def9nntoe/image/upload/v1758207278/Messenger_creation_98B171FA-3E67-46C5-AFAB-650B5FD69010.jpg" alt="Welcome" class="site-image">
+    <!-- Audio player for angelslikeyou.m4a -->
+    <audio autoplay loop>
+        <source src="https://res.cloudinary.com/def9nntoe/video/upload/v1758213146/angelslikeyou_sdw7jq.m4a" type="audio/mp4">
+        Your browser does not support the audio tag.
+    </audio>
+
     {% block content %}{% endblock %}
 </body>
 </html>
