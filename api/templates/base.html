@@ -4,12 +4,33 @@
     <title>{% block title %}{% endblock %}</title>
     <style>
         body {
-            background-color: #8B0000; /* Changed from background-image to solid color */
+            background-image: url('https://res.cloudinary.com/def9nntoe/image/upload/v1758228468/bg_t0nv9g.jpg');
+            background-size: cover; /* Scales image to cover the entire background */
+            background-position: center; /* Centers the image */
+            background-repeat: no-repeat; /* Prevents tiling */
+            background-attachment: fixed; /* Keeps image fixed during scroll */
             min-height: 100vh;
             color: #fff;
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
+            position: relative; /* For overlay */
+        }
+        /* Optional: Add a semi-transparent overlay for better text readability */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5); /* Dark overlay to improve contrast */
+            z-index: 1;
+        }
+        /* Ensure content is above the overlay */
+        body > * {
+            position: relative;
+            z-index: 2;
         }
         .message { color: lightgreen; }
         .error { color: pink; }
