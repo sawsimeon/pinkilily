@@ -1,15 +1,27 @@
 import os
+import cloudinary
+import cloudinary.uploader
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FileField
 from wtforms.validators import DataRequired
 from werkzeug.utils import secure_filename
-import vercel
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'your-flask-secret-key')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Cloudinary configuration
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    secure=True
+)
 
 # Database configuration
 database_url = os.environ.get('DATABASE_URL')
@@ -39,12 +51,12 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    media_url = db.Column(db.String(200), nullable=True)  # Renamed from image_url
+    media_url = db.Column(db.String(200), nullable=True)  # Stores Cloudinary URL
 
 class PostForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[DataRequired()])
-    media = FileField('Media (Image or Video)')  # Renamed from image
+    media = FileField('Media (Image or Video)')
 
 with app.app_context():
     db.create_all()
@@ -84,16 +96,27 @@ def add_post():
                 if form.media.data and allowed_file(form.media.data.filename):
                     try:
                         filename = secure_filename(form.media.data.filename)
-                        upload_dir = '/tmp/uploads' if os.environ.get('VERCEL') else os.path.join(app.static_folder, 'uploads')
-                        os.makedirs(upload_dir, exist_ok=True)
-                        upload_path = os.path.join(upload_dir, filename)
-                        print(f"Saving media to: {upload_path}")
-                        form.media.data.save(upload_path)
-                        media_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
-                        print(f"Generated media URL: {media_url}")
+                        if os.environ.get('CLOUDINARY_CLOUD_NAME'):
+                            # Upload to Cloudinary
+                            upload_result = cloudinary.uploader.upload(
+                                form.media.data,
+                                public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
+                                resource_type='auto'  # Detects image or video
+                            )
+                            media_url = upload_result['secure_url']  # Persistent Cloudinary URL
+                            print(f"Uploaded media to Cloudinary: {media_url}")
+                        else:
+                            # Fallback for local testing without Cloudinary
+                            upload_dir = os.path.join(app.static_folder, 'Uploads')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            upload_path = os.path.join(upload_dir, filename)
+                            print(f"Saving media to: {upload_path}")
+                            form.media.data.save(upload_path)
+                            media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
+                            print(f"Generated media URL: {media_url}")
                     except Exception as e:
                         flash(f'Media upload failed: {str(e)}', 'error')
-                        print(f"Media save error: {str(e)}")
+                        print(f"Media upload error: {str(e)}")
                         media_url = None
                 elif form.media.data:
                     flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
@@ -102,9 +125,10 @@ def add_post():
                 db.session.add(new_post)
                 db.session.commit()
                 flash('Post added successfully!', 'success')
-                print(f"Post added: {title}")
+                print(f"Post added: {title}, Media URL: {media_url}")
                 return redirect(url_for('index'))
             except Exception as e:
+                db.session.rollback()  # Rollback on DB error
                 flash(f'Error adding post: {str(e)}', 'error')
                 print(f"Post creation error: {str(e)}")
         else:
@@ -131,16 +155,27 @@ def edit_post(post_id):
                 if form.media.data and allowed_file(form.media.data.filename):
                     try:
                         filename = secure_filename(form.media.data.filename)
-                        upload_dir = '/tmp/uploads' if os.environ.get('VERCEL') else os.path.join(app.static_folder, 'Uploads')
-                        os.makedirs(upload_dir, exist_ok=True)
-                        upload_path = os.path.join(upload_dir, filename)
-                        print(f"Saving media to: {upload_path}")
-                        form.media.data.save(upload_path)
-                        post.media_url = url_for('static', filename=f'uploads/{filename}', _external=True) if not os.environ.get('VERCEL') else f"{request.url_root}static/uploads/{filename}"
-                        print(f"Updated media URL: {post.media_url}")
+                        if os.environ.get('CLOUDINARY_CLOUD_NAME'):
+                            # Upload to Cloudinary
+                            upload_result = cloudinary.uploader.upload(
+                                form.media.data,
+                                public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
+                                resource_type='auto'  # Detects image or video
+                            )
+                            post.media_url = upload_result['secure_url']  # Persistent Cloudinary URL
+                            print(f"Updated media to Cloudinary: {post.media_url}")
+                        else:
+                            # Fallback for local testing without Cloudinary
+                            upload_dir = os.path.join(app.static_folder, 'Uploads')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            upload_path = os.path.join(upload_dir, filename)
+                            print(f"Saving media to: {upload_path}")
+                            form.media.data.save(upload_path)
+                            post.media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
+                            print(f"Updated media URL: {post.media_url}")
                     except Exception as e:
                         flash(f'Media upload failed: {str(e)}', 'error')
-                        print(f"Media save error: {str(e)}")
+                        print(f"Media upload error: {str(e)}")
                 elif form.media.data:
                     flash('Invalid file type! Only PNG, JPG, JPEG, GIF, MP4, WebM allowed', 'error')
                     print(f"Invalid file type: {form.media.data.filename}")
@@ -149,6 +184,7 @@ def edit_post(post_id):
                 print(f"Post {post_id} updated")
                 return redirect(url_for('index'))
             except Exception as e:
+                db.session.rollback()  # Rollback on DB error
                 flash(f'Error updating post: {str(e)}', 'error')
                 print(f"Post update error: {str(e)}")
         else:
