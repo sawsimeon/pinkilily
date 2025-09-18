@@ -6,3 +6,4 @@ SQLAlchemy
 psycopg2-binary
 vercel
 gunicorn
+vercel_blob
