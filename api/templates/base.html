@@ -4,19 +4,18 @@
     <title>{% block title %}{% endblock %}</title>
     <style>
         body {
-            background-image: url('https://res.cloudinary.com/def9nntoe/image/upload/v1758228468/bg_t0nv9g.jpg');
-            background-size: cover; /* Scales image to cover the entire background */
-            background-position: center; /* Centers the image */
-            background-repeat: no-repeat; /* Prevents tiling */
-            background-attachment: fixed; /* Keeps image fixed during scroll */
+            background-image: url('https://res.cloudinary.com/def9nntoe/image/upload/v1758207278/Messenger_creation_98B171FA-3E67-46C5-AFAB-650B5FD69010.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
             min-height: 100vh;
             color: #fff;
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
-            position: relative; /* For overlay */
+            position: relative;
         }
-        /* Optional: Add a semi-transparent overlay for better text readability */
         body::before {
             content: '';
             position: absolute;
@@ -24,10 +23,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5); /* Dark overlay to improve contrast */
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1;
         }
-        /* Ensure content is above the overlay */
         body > * {
             position: relative;
             z-index: 2;
@@ -40,14 +38,63 @@
         input, textarea { width: 100%; padding: 5px; margin-bottom: 10px; }
         ul { list-style: none; padding: 0; }
         li { background: rgba(0, 0, 0, 0.5); padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-        .post-image, .post-media { max-width: 200px; height: auto; border-radius: 5px; margin-bottom: 10px; }
+        .post-image, .post-media {
+            max-width: 200px;
+            height: auto;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: block;
+        }
         .site-image {
-            max-width: 150px; /* Small size */
+            max-width: 150px;
             height: auto;
             display: block;
-            margin-left: 10px; /* Align to left */
+            margin-left: 10px;
             margin-top: 10px;
             margin-bottom: 10px;
+        }
+        .audio-control {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .audio-control:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .media-player {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            width: 250px;
+        }
+        .media-player select, .media-player button {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .media-player select:hover, .media-player button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .media-player select {
+            width: 180px;
+        }
+        .media-player audio {
+            margin-top: 10px;
+            width: 100%;
         }
     </style>
 </head>
@@ -59,28 +106,82 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
-    <!-- Site-wide image -->
     <img src="https://res.cloudinary.com/def9nntoe/image/upload/v1758207278/Messenger_creation_98B171FA-3E67-46C5-AFAB-650B5FD69010.jpg" alt="Welcome" class="site-image">
-    <!-- Audio player with play/pause button -->
+    <!-- Background audio (left side) -->
     <audio id="background-audio" loop>
         <source src="https://res.cloudinary.com/def9nntoe/video/upload/v1758213146/angelslikeyou_sdw7jq.m4a" type="audio/mp4">
         Your browser does not support the audio tag.
     </audio>
-    <button class="audio-control" onclick="toggleAudio()">Play Audio</button>
+    <button class="audio-control" onclick="toggleBackgroundAudio()">Play Audio</button>
+    <!-- New media player (right side) -->
+    <div class="media-player">
+        <audio id="playlist-audio" controls>
+            <source id="playlist-source" src="https://res.cloudinary.com/def9nntoe/video/upload/v1758304480/Lily_Moon_-_Life_is_hard_by_Lily_Moon_2025-08-12_15_21_w02xc6.m4a" type="audio/mp4">
+            Your browser does not support the audio tag.
+        </audio>
+        <select id="song-selector" onchange="changeSong()">
+            <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304480/Lily_Moon_-_Life_is_hard_by_Lily_Moon_2025-08-12_15_21_w02xc6.m4a" selected>Life is Hard</option>
+            <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304481/Lily_Moon_-_You_are_my_first_pain_2025-04-28_19_58_heexx5.m4a">You Are My First Pain</option>
+            <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304482/Lily_Moon_-_%EF%B8%8F_%E1%80%90%E1%81%A2%E1%80%BA_%E1%80%9E_%E1%80%9A%E1%80%AF%E1%81%A2%E1%80%BA_%E1%80%9A_%E1%80%9E%E1%80%B8_%E1%80%9C%E1%81%A2_%E1%80%9A%E1%80%91%E1%80%B6_%E1%80%9A%E1%80%80%E1%80%AE%E1%81%A2%E1%80%BA_%EF%B8%8F_2025-08-12_15_00_ekym8b.m4a">Karen Song</option>
+            <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304483/Lily_Moon_-_you_Hurt_me_2025-04-28_21_37_ahfrji.m4a">You Hurt Me</option>
+        </select>
+        <button onclick="togglePlaylistAudio()">Play</button>
+    </div>
     <script>
-        function toggleAudio() {
-            var audio = document.getElementById('background-audio');
-            var button = document.querySelector('.audio-control');
-            if (audio.paused) {
-                audio.play();
-                button.textContent = 'Pause Audio';
+        // Background audio (angelslikeyou)
+        const backgroundAudio = document.getElementById('background-audio');
+        const backgroundButton = document.querySelector('.audio-control');
+        function toggleBackgroundAudio() {
+            if (backgroundAudio.paused) {
+                backgroundAudio.play();
+                backgroundButton.textContent = 'Pause Audio';
             } else {
-                audio.pause();
-                button.textContent = 'Play Audio';
+                backgroundAudio.pause();
+                backgroundButton.textContent = 'Play Audio';
             }
         }
-    </script>
+        backgroundAudio.addEventListener('play', () => {
+            backgroundButton.textContent = 'Pause Audio';
+        });
+        backgroundAudio.addEventListener('pause', () => {
+            backgroundButton.textContent = 'Play Audio';
+        });
 
+        // Playlist audio (four songs)
+        const playlistAudio = document.getElementById('playlist-audio');
+        const playlistSource = document.getElementById('playlist-source');
+        const playlistButton = document.querySelector('.media-player button');
+        const songSelector = document.getElementById('song-selector');
+        function togglePlaylistAudio() {
+            if (playlistAudio.paused) {
+                // Pause background audio when playlist audio plays
+                backgroundAudio.pause();
+                backgroundButton.textContent = 'Play Audio';
+                playlistAudio.play();
+                playlistButton.textContent = 'Pause';
+            } else {
+                playlistAudio.pause();
+                playlistButton.textContent = 'Play';
+            }
+        }
+        function changeSong() {
+            const newSrc = songSelector.value;
+            playlistSource.src = newSrc;
+            playlistAudio.load();
+            playlistButton.textContent = 'Play';
+            // Pause background audio when changing playlist song
+            backgroundAudio.pause();
+            backgroundButton.textContent = 'Play Audio';
+        }
+        playlistAudio.addEventListener('play', () => {
+            playlistButton.textContent = 'Pause';
+            backgroundAudio.pause();
+            backgroundButton.textContent = 'Play Audio';
+        });
+        playlistAudio.addEventListener('pause', () => {
+            playlistButton.textContent = 'Play';
+        });
+    </script>
     {% block content %}{% endblock %}
 </body>
 </html>
