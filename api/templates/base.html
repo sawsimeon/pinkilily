@@ -61,11 +61,25 @@
     {% endwith %}
     <!-- Site-wide image -->
     <img src="https://res.cloudinary.com/def9nntoe/image/upload/v1758207278/Messenger_creation_98B171FA-3E67-46C5-AFAB-650B5FD69010.jpg" alt="Welcome" class="site-image">
-    <!-- Audio player for angelslikeyou.m4a -->
-    <audio autoplay loop>
+    <!-- Audio player with play/pause button -->
+    <audio id="background-audio" loop>
         <source src="https://res.cloudinary.com/def9nntoe/video/upload/v1758213146/angelslikeyou_sdw7jq.m4a" type="audio/mp4">
         Your browser does not support the audio tag.
     </audio>
+    <button class="audio-control" onclick="toggleAudio()">Play Audio</button>
+    <script>
+        function toggleAudio() {
+            var audio = document.getElementById('background-audio');
+            var button = document.querySelector('.audio-control');
+            if (audio.paused) {
+                audio.play();
+                button.textContent = 'Pause Audio';
+            } else {
+                audio.pause();
+                button.textContent = 'Play Audio';
+            }
+        }
+    </script>
 
     {% block content %}{% endblock %}
 </body>
