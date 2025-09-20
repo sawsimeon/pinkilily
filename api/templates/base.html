@@ -39,16 +39,19 @@
         ul { list-style: none; padding: 0; }
         li { background: rgba(0, 0, 0, 0.5); padding: 10px; margin-bottom: 10px; border-radius: 5px; }
         .post-image, .post-media {
-            max-width: 300px;
+            max-width: 300px; /* Larger size */
+            max-height: 300px; /* Constrain height */
             height: auto;
             border-radius: 5px;
+            margin-right: 10px; /* Space between items */
             margin-bottom: 10px;
-            display: block;
+            object-fit: cover; /* Prevent distortion */
         }
-        .media-gallery{
+        .media-gallery {
             display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
+            flex-direction: row; /* Horizontal alignment */
+            flex-wrap: wrap; /* Allow wrapping if needed */
+            gap: 10px;
         }
         .site-image {
             max-width: 150px;
