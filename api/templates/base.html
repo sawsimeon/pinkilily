@@ -78,7 +78,7 @@
             align-items: center;
             width: 250px;
         }
-        .media-player select, .media-player button {
+        .media-player button, .media-player input[type="range"] {
             background: rgba(255, 255, 255, 0.2);
             color: #fff;
             border: 1px solid #ccc;
@@ -86,11 +86,20 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        .media-player select:hover, .media-player button:hover {
+        .media-player button:hover, .media-player input[type="range"]:hover {
             background: rgba(255, 255, 255, 0.3);
         }
         .media-player select {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            cursor: pointer;
             width: 180px;
+        }
+        .media-player select:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
         .media-player audio {
             margin-top: 10px;
@@ -113,9 +122,9 @@
         Your browser does not support the audio tag.
     </audio>
     <button class="audio-control" onclick="toggleBackgroundAudio()">Play Audio</button>
-    <!-- New media player (right side) -->
+    <!-- Media player (right side) -->
     <div class="media-player">
-        <audio id="playlist-audio" controls>
+        <audio id="playlist-audio">
             <source id="playlist-source" src="https://res.cloudinary.com/def9nntoe/video/upload/v1758304480/Lily_Moon_-_Life_is_hard_by_Lily_Moon_2025-08-12_15_21_w02xc6.m4a" type="audio/mp4">
             Your browser does not support the audio tag.
         </audio>
@@ -125,7 +134,11 @@
             <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304482/Lily_Moon_-_%EF%B8%8F_%E1%80%90%E1%81%A2%E1%80%BA_%E1%80%9E_%E1%80%9A%E1%80%AF%E1%81%A2%E1%80%BA_%E1%80%9A_%E1%80%9E%E1%80%B8_%E1%80%9C%E1%81%A2_%E1%80%9A%E1%80%91%E1%80%B6_%E1%80%9A%E1%80%80%E1%80%AE%E1%81%A2%E1%80%BA_%EF%B8%8F_2025-08-12_15_00_ekym8b.m4a">Miss My Country</option>
             <option value="https://res.cloudinary.com/def9nntoe/video/upload/v1758304483/Lily_Moon_-_you_Hurt_me_2025-04-28_21_37_ahfrji.m4a">You Hurt Me</option>
         </select>
-        <button onclick="togglePlaylistAudio()">Play</button>
+        <button onclick="togglePlaylistAudio()">Play/Pause</button>
+        <button onclick="stopPlaylistAudio()">Stop</button>
+        <button onclick="playPreviousSong()">Previous</button>
+        <button onclick="playNextSong()">Next</button>
+        <input type="range" id="volume-control" min="0" max="1" step="0.1" value="1" oninput="adjustVolume()">
     </div>
     <script>
         // Background audio (angelslikeyou)
@@ -135,6 +148,8 @@
             if (backgroundAudio.paused) {
                 backgroundAudio.play();
                 backgroundButton.textContent = 'Pause Audio';
+                playlistAudio.pause();
+                playlistButton.textContent = 'Play/Pause';
             } else {
                 backgroundAudio.pause();
                 backgroundButton.textContent = 'Play Audio';
@@ -142,6 +157,8 @@
         }
         backgroundAudio.addEventListener('play', () => {
             backgroundButton.textContent = 'Pause Audio';
+            playlistAudio.pause();
+            playlistButton.textContent = 'Play/Pause';
         });
         backgroundAudio.addEventListener('pause', () => {
             backgroundButton.textContent = 'Play Audio';
@@ -150,37 +167,86 @@
         // Playlist audio (four songs)
         const playlistAudio = document.getElementById('playlist-audio');
         const playlistSource = document.getElementById('playlist-source');
-        const playlistButton = document.querySelector('.media-player button');
+        const playlistButton = document.querySelector('.media-player button[onclick="togglePlaylistAudio()"]');
         const songSelector = document.getElementById('song-selector');
+        const songs = Array.from(songSelector.options).map(option => ({
+            url: option.value,
+            title: option.text
+        }));
+        let currentSongIndex = 0;
+
+        function changeSong() {
+            currentSongIndex = songSelector.selectedIndex;
+            playlistSource.src = songs[currentSongIndex].url;
+            playlistAudio.load();
+            playlistAudio.play();
+            playlistButton.textContent = 'Play/Pause';
+            backgroundAudio.pause();
+            backgroundButton.textContent = 'Play Audio';
+        }
+
         function togglePlaylistAudio() {
             if (playlistAudio.paused) {
-                // Pause background audio when playlist audio plays
+                playlistAudio.play();
+                playlistButton.textContent = 'Play/Pause';
                 backgroundAudio.pause();
                 backgroundButton.textContent = 'Play Audio';
-                playlistAudio.play();
-                playlistButton.textContent = 'Pause';
             } else {
                 playlistAudio.pause();
-                playlistButton.textContent = 'Play';
+                playlistButton.textContent = 'Play/Pause';
             }
         }
-        function changeSong() {
-            const newSrc = songSelector.value;
-            playlistSource.src = newSrc;
-            playlistAudio.load();
-            playlistButton.textContent = 'Play';
-            // Pause background audio when changing playlist song
+
+        function stopPlaylistAudio() {
+            playlistAudio.pause();
+            playlistAudio.currentTime = 0;
+            playlistButton.textContent = 'Play/Pause';
             backgroundAudio.pause();
             backgroundButton.textContent = 'Play Audio';
         }
+
+        function playNextSong() {
+            currentSongIndex = (currentSongIndex + 1) % songs.length;
+            songSelector.selectedIndex = currentSongIndex;
+            playlistSource.src = songs[currentSongIndex].url;
+            playlistAudio.load();
+            playlistAudio.play();
+            playlistButton.textContent = 'Play/Pause';
+            backgroundAudio.pause();
+            backgroundButton.textContent = 'Play Audio';
+        }
+
+        function playPreviousSong() {
+            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+            songSelector.selectedIndex = currentSongIndex;
+            playlistSource.src = songs[currentSongIndex].url;
+            playlistAudio.load();
+            playlistAudio.play();
+            playlistButton.textContent = 'Play/Pause';
+            backgroundAudio.pause();
+            backgroundButton.textContent = 'Play Audio';
+        }
+
+        function adjustVolume() {
+            playlistAudio.volume = document.getElementById('volume-control').value;
+        }
+
         playlistAudio.addEventListener('play', () => {
-            playlistButton.textContent = 'Pause';
+            playlistButton.textContent = 'Play/Pause';
             backgroundAudio.pause();
             backgroundButton.textContent = 'Play Audio';
         });
+
         playlistAudio.addEventListener('pause', () => {
-            playlistButton.textContent = 'Play';
+            playlistButton.textContent = 'Play/Pause';
         });
+
+        playlistAudio.addEventListener('ended', () => {
+            playNextSong();
+        });
+
+        // Initialize volume
+        playlistAudio.volume = document.getElementById('volume-control').value;
     </script>
     {% block content %}{% endblock %}
 </body>
