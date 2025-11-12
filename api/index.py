@@ -4,6 +4,7 @@ try:
     load_dotenv()  # Load .env file for local development
 except ImportError:
     print("python-dotenv not installed; relying on environment variables")
+from urllib.parse import urlparse, urlunparse
 import cloudinary
 import cloudinary.uploader
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -30,10 +31,17 @@ cloudinary.config(
 database_url = os.environ.get('DATABASE_URL')
 if not database_url:
     raise ValueError("DATABASE_URL environment variable is required")
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Already in your code, included for completeness
+
+# Parse and clean URL
+parsed = urlparse(database_url)
+if parsed.scheme == 'postgres':
+    parsed = parsed._replace(scheme='postgresql')
+if parsed.query:
+    parsed = parsed._replace(query='')  # Remove ?sslmode=... etc.
+
+clean_url = urlunparse(parsed)
+app.config['SQLALCHEMY_DATABASE_URI'] = clean_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 db = SQLAlchemy(app)
